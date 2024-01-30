@@ -1,9 +1,3 @@
-import json
-import os
-import re
-import threading
-import time
-import uuid
 from datetime import datetime, timedelta
 
 import bcrypt
@@ -64,20 +58,20 @@ def register():
         return make_response(jsonify({"message": "Bad Request"}), 400)
     username = data['username']
     password = data['password']
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM `users` WHERE `username` = %s", (username,))
-    user = cur.fetchone()
+    cursor = mysql.connection.cursor(cur.DictCursor)
+    cursor.execute("SELECT * FROM `users` WHERE `username` = %s", (username,))
+    user = cursor.fetchone()
     if user is not None:
         return make_response(jsonify({"message": "Username already exists"}), 409)
 
     salt = bcrypt.gensalt()
     password = bcrypt.hashpw(password.encode('utf-8'), salt)
 
-    cur.execute("INSERT INTO `users` (`username`, `password`, `salt`) VALUES (%s, %s, %s)",
+    cursor.execute("INSERT INTO `users` (`username`, `password`, `salt`) VALUES (%s, %s, %s)",
                 (username, password, salt))
 
     mysql.connection.commit()
-    cur.close()
+    cursor.close()
     return make_response(jsonify({"message": "User created"}), 201)
 
 
@@ -88,10 +82,10 @@ def login():
         return make_response(jsonify({"message": "Bad Request"}), 400)
     username = data['username']
     password = data['password']
-    cur = mysql.connection.cursor()
-    cur.execute(
+    cursor = mysql.connection.cursor(cur.DictCursor)
+    cursor.execute(
         "SELECT `id`, `password` FROM `users` WHERE `username` = %s", (username,))
-    user = cur.fetchone()
+    user = cursor.fetchone()
     if user is None:
         return make_response(jsonify({"message": "Invalid username or password"}), 401)
 
@@ -110,13 +104,13 @@ def login():
 @app.post('/tasks')
 def create_task():
     data = request.get_json()
-    cur = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(cur.DictCursor)
     if 'task_id' in data:
         task_id = data['task_id']
-        cur.execute("INSERT INTO `sub_tasks` (`task_id`, `status`, `created_at`, `updated_at`) VALUES (%s, %s, %s, %s)",
+        cursor.execute("INSERT INTO `sub_tasks` (`task_id`, `status`, `created_at`, `updated_at`) VALUES (%s, %s, %s, %s)",
                     (task_id, Status.SubTask.TODO, datetime.now(), datetime.now()))
         mysql.connection.commit()
-        cur.close()
+        cursor.close()
         return make_response(jsonify({"message": "Subtask created"}), 201)
     if 'title' not in data or 'description' not in data or 'due_date' not in data:
         return make_response(jsonify({"message": "Bad Request"}), 400)
@@ -125,28 +119,28 @@ def create_task():
     due_date = data['due_date']
     due_date = datetime.strptime(due_date, '%Y-%m-%d')
     date_diff = (due_date - datetime.now()).days
-    cur.execute("INSERT INTO `tasks` (`title`, `description`, `due_date`, `status`, `priority`, `user_id`)" +
+    cursor.execute("INSERT INTO `tasks` (`title`, `description`, `due_date`, `status`, `priority`, `user_id`)" +
                 "VALUES (%s, %s, %s, %s, %s, %s)",
                 (title, description, due_date, Status.Task.TODO,
                  Priority.Task.get_priority_from_date_diff(date_diff), request.user['user_id']))
     mysql.connection.commit()
-    cur.close()
+    cursor.close()
     return make_response(jsonify({"message": "Task created"}), 201)
 
 
 @app.get('/tasks')
 def get_tasks():
-    cur = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(cur.DictCursor)
     if request.args.get('type') == 'sub_tasks':
         task_id = request.args.get(
             'task_id') if 'task_id' in request.args else None
         if task_id is None:
-            cur.execute("SELECT * FROM `sub_tasks` where `delete` = 0")
+            cursor.execute("SELECT * FROM `sub_tasks` where `delete` = 0")
         else:
-            cur.execute(
+            cursor.execute(
                 "SELECT * FROM `sub_tasks` WHERE `task_id` = %s and `delete` = 0", (task_id,))
-        sub_tasks = cur.fetchall()
-        cur.close()
+        sub_tasks = cursor.fetchall()
+        cursor.close()
         sub_tasks = [{'status': Status.SubTask.get_status_name(
             sub_task['status']), **sub_task} for sub_task in sub_tasks]
         return make_response(jsonify({"sub_tasks": sub_tasks}), 200)
@@ -160,9 +154,9 @@ def get_tasks():
                 query += " and `due_date` = '%s'"
             else:
                 query += " and `%s` = '%s'".format(i)
-        cur.execute(query, tuple(args.values()))
-        tasks = cur.fetchall()
-        cur.close()
+        cursor.execute(query, tuple(args.values()))
+        tasks = cursor.fetchall()
+        cursor.close()
         tasks = [{'status': Status.Task.get_status_name(task['status']), 'priority': Priority.Task.get_priority_name(
             task['priority']), **task} for task in tasks]
         return make_response(jsonify({"tasks": tasks}), 200)
@@ -171,16 +165,16 @@ def get_tasks():
 @app.put('/tasks')
 def update_task():
     data = request.get_json()
-    cur = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(cur.DictCursor)
     if request.args.get('type') == 'sub_tasks':
         if 'sub_task_id' not in data:
             return make_response(jsonify({"message": "Bad Request"}), 400)
         sub_task_id = data['sub_task_id']
         status = Status.SubTask.get_status_from_name(data['status'])
-        cur.execute("UPDATE `sub_tasks` SET `status` = %s, `updated_at` = %s WHERE `id` = %s",
+        cursor.execute("UPDATE `sub_tasks` SET `status` = %s, `updated_at` = %s WHERE `id` = %s",
                     (status, datetime.now(), sub_task_id))
         mysql.connection.commit()
-        cur.close()
+        cursor.close()
         return make_response(jsonify({"message": "Subtask updated"}), 200)
     else:
         if 'task_id' not in data:
@@ -206,29 +200,35 @@ def update_task():
 
         query = query[:-2] + " WHERE `id` = %s"
         args['id'] = data['task_id']
-        cur.execute(query, tuple(args.values()))
+        cursor.execute(query, tuple(args.values()))
         mysql.connection.commit()
-        cur.close()
+        cursor.close()
         return make_response(jsonify({"message": "Task updated"}), 200)
     
 @app.delete('/tasks')
 def delete_task():
-    cur = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(cur.DictCursor)
     if request.args.get('type') == 'sub_tasks':
         if 'sub_task_id' not in request.args:
             return make_response(jsonify({"message": "Bad Request"}), 400)
         sub_task_id = request.args.get('sub_task_id')
-        cur.execute("UPDATE `sub_tasks` SET `delete` = 1 WHERE `id` = %s", (sub_task_id,))
+        cursor.execute("UPDATE `sub_tasks` SET `delete` = 1 WHERE `id` = %s", (sub_task_id,))
         mysql.connection.commit()
-        cur.close()
+        cursor.close()
         return make_response(jsonify({"message": "Subtask deleted"}), 200)
     else:
         if 'task_id' not in request.args:
             return make_response(jsonify({"message": "Bad Request"}), 400)
         task_id = request.args.get('task_id')
-        cur.execute("UPDATE `tasks` SET `delete` = 1 WHERE `id` = %s", (task_id,))
+        cursor.execute("UPDATE `tasks` SET `delete` = 1 WHERE `id` = %s", (task_id,))
         mysql.connection.commit()
-        cur.execute("UPDATE `sub_tasks` SET `delete` = 1 WHERE `task_id` = %s", (task_id,))
+        cursor.execute("UPDATE `sub_tasks` SET `delete` = 1 WHERE `task_id` = %s", (task_id,))
         mysql.connection.commit()
-        cur.close()
+        cursor.close()
         return make_response(jsonify({"message": "Task deleted"}), 200)
+    
+@app.post('/call_status')
+def call_status():
+    data = request.get_json()
+    print(data)
+    return make_response(jsonify({"message": "Call status received"}), 200)

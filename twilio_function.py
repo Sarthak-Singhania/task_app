@@ -4,6 +4,10 @@ import requests
 from dotenv import load_dotenv
 
 from twilio.rest import Client
+from mysql.connector import connect
+
+mysql = connect(host="localhost", user="root", password="root", database="task_app")
+cursor = mysql.cursor(dictionary=True)
 
 load_dotenv()
 
@@ -13,7 +17,8 @@ client = Client(account_sid, auth_token)
 
 
 def make_call(to, title, id, due_date):
-    ip = requests.get('http://checkip.amazonaws.com').text.strip()
+    # ip = requests.get('http://checkip.amazonaws.com').text.strip()
+    ip="3.236.58.68"
     call = client.calls.create(
         to=f"+91{to}",
         from_="+14422765082",
@@ -28,3 +33,5 @@ def make_call(to, title, id, due_date):
     )
 
     return call.sid
+
+make_call("8368472801", "test", 1, "2021-08-01")

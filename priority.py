@@ -25,9 +25,9 @@ class Priority:
                 return cls.FIVE_PLUS_DAYS
     
     class User:
-        FIRST = 0
-        SECOND = 1
-        THIRD = 2
+        LOW = 0
+        MID = 1
+        HIGH = 2
 
         @classmethod
         def get_priority_name(cls, priority_value):
@@ -36,3 +36,9 @@ class Priority:
                     return name
 
             raise ValueError(f"Invalid priority value: {priority_value}")
+        
+        @classmethod
+        def get_user_priority(cls, cursor, mysql, mobile_number):
+            cursor.execute("SELECT `priority` FROM `users` WHERE `mobile_number` = %s limit 1", (mobile_number,))
+            user_priority = cursor.fetchone()['priority']
+            return user_priority

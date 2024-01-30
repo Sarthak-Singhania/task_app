@@ -229,6 +229,10 @@ def delete_task():
     
 @app.post('/call_status')
 def call_status():
-    data = request.get_json()
-    print(data)
-    return make_response(jsonify({"message": "Call status received"}), 200)
+    try:
+        data = request.get_json()
+        print(data)
+        return make_response(jsonify({"message": "Call status received"}), 200)
+    except Exception as e:
+        print(e)
+        return make_response(jsonify({"message": "Bad Request"}), 400)

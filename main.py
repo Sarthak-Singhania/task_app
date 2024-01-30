@@ -39,7 +39,7 @@ def verify_token(token):
 def before_request():
     if request.method == 'OPTIONS':
         return '', 200
-    if request.path == '/login' or request.path == '/register':
+    if request.path in ['/login', '/register', '/call_status']:
         return
     if 'Authorization' not in request.headers and 'token' not in request.cookies:
         return make_response(jsonify({"message": "Unauthorized"}), 401)

@@ -130,8 +130,8 @@ def create_task():
                    "VALUES (%s, %s, %s, %s, %s)",
                    (title, description, due_date, Status.Task.TODO,
                     Priority.Task.get_priority_from_date_diff(date_diff)))
-    cursor.execute("SELECT LAST_INSERT_ID()")
-    task_id = cursor.fetchone()['LAST_INSERT_ID()']
+    cursor.execute("SELECT LAST_INSERT_ID() as task_id")
+    task_id = cursor.fetchone()['task_id']
     mysql.connection.commit()
     cursor.execute("INSERT INTO `task_user_link` values(%s, %s)", (task_id, request.user['user_id']))
     mysql.connection.commit()

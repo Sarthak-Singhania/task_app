@@ -26,3 +26,15 @@ class Status:
     class SubTask(BaseStatus):
         TODO = 0
         DONE = 1
+
+    class Call(BaseStatus):
+        NO_ANSWER = 0
+        ANSWERED = 1
+
+        def parse_status(call_status):
+            if call_status == "0":
+                return Status.Call.NO_ANSWER
+            elif call_status == "1":
+                return Status.Call.ANSWERED
+            else:
+                raise ValueError(f"Invalid call status: {call_status}")

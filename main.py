@@ -4,6 +4,7 @@ import bcrypt
 import jwt
 import MySQLdb.cursors as cur
 import pandas as pd
+import redis
 from flask import Flask, jsonify, make_response, request
 from flask_cors import CORS, cross_origin
 from flask_mysqldb import MySQL
@@ -26,6 +27,8 @@ app.config['JSON_SORT_KEYS'] = False
 app.config['SECRET_KEY'] = ";?]tSNUIb>yCV?.qlEsd*aq#u1JPnB7Q?mZE&cX<iPoif0Sk'Ftq/23RIz/;5&_W"
 
 mysql = MySQL(app)
+
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
 
 def verify_token(token):
@@ -262,20 +265,10 @@ def delete_task():
 def call_status():
     status = request.form.get('CallStatus')
     if status == 'completed':
-        return make_response(jsonify({"message": "Call completed"}), 200)
+        r.set(request.form.get('CallSid'), Status.Call.ANSWERED)
     elif status == 'busy' or status == 'no-answer':
-        cursor = mysql.connection.cursor(cur.DictCursor)
-        current_priority = Priority.User.get_user_priority(
-            cursor, mysql, request.form.get('To')[3:])
-        match current_priority:
-            case Priority.User.LOW:
-                new_priority = Priority.User.MID
-            case Priority.User.MID:
-                new_priority = Priority.User.HIGH
-            case Priority.User.HIGH:
-                new_priority = Priority.User.HIGH
-            case _:
-                new_priority = Priority.User.HIGH
+        r.set(request.form.get('CallSid'), Status.Call.NO_ANSWER)
+    return make_response(jsonify({"message": "Call status updated"}), 200)
 
 
 if __name__ == "__main__":

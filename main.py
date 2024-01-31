@@ -126,10 +126,14 @@ def create_task():
     due_date = data['due_date']
     due_date = datetime.strptime(due_date, '%Y-%m-%d')
     date_diff = (due_date - datetime.now()).days + 1
-    cursor.execute("INSERT INTO `tasks` (`title`, `description`, `due_date`, `status`, `priority`, `user_id`)" +
-                   "VALUES (%s, %s, %s, %s, %s, %s)",
+    cursor.execute("INSERT INTO `tasks` (`title`, `description`, `due_date`, `status`, `priority`)" +
+                   "VALUES (%s, %s, %s, %s, %s)",
                    (title, description, due_date, Status.Task.TODO,
-                    Priority.Task.get_priority_from_date_diff(date_diff), request.user['user_id']))
+                    Priority.Task.get_priority_from_date_diff(date_diff)))
+    cursor.execute("SELECT LAST_INSERT_ID()")
+    task_id = cursor.fetchone()['LAST_INSERT_ID()']
+    mysql.connection.commit()
+    cursor.execute("INSERT INTO `task_user_link` values(%s, %s)", (task_id, request.user['user_id']))
     mysql.connection.commit()
     cursor.close()
     return make_response(jsonify({"message": "Task created"}), 201)
@@ -272,4 +276,4 @@ def call_status():
 
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(host = '0.0.0.0', port=5000)

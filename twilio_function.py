@@ -80,7 +80,7 @@ def handle_task(task_id, title, due_date):
             FROM users
             JOIN task_user_link ON users.id = task_user_link.user_id
             WHERE task_user_link.task_id = %s
-            ORDER BY users.priority DESC
+            ORDER BY users.priority
         """, (task_id,))
         users = cursor.fetchall()
         cursor.close()
@@ -89,7 +89,9 @@ def handle_task(task_id, title, due_date):
         for user in users:
             call_sid = make_call(
                 user['phone_number'], title, task_id, due_date)
-            time.sleep(30)  # Wait for call status to be updated
+            while True:
+                    if check_call_status(call_sid):
+                        break
             status = check_call_status(call_sid)
             if Status.Call.parse_status(status):
                 break

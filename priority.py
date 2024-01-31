@@ -15,7 +15,7 @@ class Priority:
         
         @classmethod
         def get_priority_from_date_diff(cls, date_diff):
-            if date_diff == 0:
+            if date_diff <= 0:
                 return cls.TODAY
             elif date_diff == 1 or date_diff == 2:
                 return cls.TOMORROW_OR_DAY_AFTER

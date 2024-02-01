@@ -78,10 +78,10 @@ def handle_task(task_id, title, due_date):
         cursor.execute("""
             SELECT users.phone_number
             FROM users
-            JOIN task_user_link ON users.id = task_user_link.user_id
-            WHERE task_user_link.task_id = %s
+            JOIN task_user_link tul ON users.id = tul.user_id
+            WHERE tul.task_id = %s AND tul.delete = 0
             ORDER BY users.priority
-        """, (task_id,))
+        """.replace('\n', ' '), (task_id,))
         users = cursor.fetchall()
         cursor.close()
         release_connection(connection)

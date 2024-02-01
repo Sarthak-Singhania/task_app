@@ -9,6 +9,7 @@ class BaseStatus:
 
     @classmethod
     def get_status_from_name(cls, status_name):
+        status_name = status_name.upper()
         for name, value in vars(cls).items():
             if name == status_name:
                 return value

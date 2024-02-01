@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timedelta
 
 import bcrypt
@@ -75,6 +76,8 @@ def register():
         password = data['password']
         name = data['name'] if 'name' in data else username
         phone_number = data['phone_number']
+        if not re.match(r'^\+91\d{10}$', phone_number):
+            return make_response(jsonify({"message": "Incorrect format for phone number."}), 400)
         priority = data['priority'] if 'priority' in data else Priority.User.LOW
         priority = Priority.User.get_priority_value(priority)
         cursor = mysql.connection.cursor(cur.DictCursor)
@@ -215,10 +218,10 @@ def get_tasks():
             task_id = request.args.get(
                 'task_id') if 'task_id' in request.args else None
             if task_id is None:
-                cursor.execute("SELECT * FROM `sub_tasks` where `delete` = 0")
+                cursor.execute("SELECT * FROM `sub_tasks` WHERE `delete` = 0 AND task_id in (select task_id from task_user_link where user_id = %s)", (request.user['user_id'],))
             else:
                 cursor.execute(
-                    "SELECT * FROM `sub_tasks` WHERE `task_id` = %s and `delete` = 0", (task_id,))
+                    "SELECT * FROM `sub_tasks` WHERE `task_id` = %s and `delete` = 0 AND task_id in (select task_id from task_user_link where user_id = %s)", (task_id, request.user['user_id'],))
 
             sub_tasks = cursor.fetchall()
             cursor.close()
@@ -261,6 +264,8 @@ def get_tasks():
                 else:
                     query += f" and `{i}` = %s"
 
+            query += f" and id in (select task_id from task_user_link where user_id = {request.user['user_id']})"
+
             if 'page' in args and args['page'].isdigit() and int(args['page']) > 0:
                 page = int(args['page']) - 1
                 del args['page']
@@ -296,7 +301,11 @@ def update_task():
         cursor = mysql.connection.cursor(cur.DictCursor)
 
         # This is the code for updating subtasks
-        if request.args.get('type') == 'sub_tasks':
+        if 'type' not in data:
+            return make_response(jsonify({"message":"The task type is missing."}), 400)
+        
+        request_type = data['type']
+        if request_type == 'sub_tasks':
             if 'sub_task_id' not in data:
                 return make_response(jsonify({"message": "Bad Request"}), 400)
             sub_task_id = data['sub_task_id']
@@ -323,7 +332,7 @@ def update_task():
 
             logger.info(f"Subtask {sub_task_id} updated to {status}")
             return make_response(jsonify({"message": "Subtask updated"}), 200)
-        elif request.args.get('type') == 'tasks':
+        elif request_type == 'tasks':
             # This is the code for updating tasks
             if 'task_id' not in data:
                 return make_response(jsonify({"message": "Task id not present in the request."}), 400)
@@ -372,21 +381,6 @@ def update_task():
                 query += "`due_date` = %s, `priority` = %s, "
                 args['due_date'] = due_date
                 args['priority'] = priority
-
-            if 'user_id' in data:
-                user_id = data['user_id']
-                task_id = data['task_id']
-
-                try:
-                    cursor.execute(
-                        "INSERT INTO `task_user_link` values(%s, %s)", (task_id, user_id))
-                    mysql.connection.commit()
-                    cursor.close()
-                except MySQLdb.IntegrityError:
-                    return make_response(jsonify({"message": "User already exists"}), 409)
-
-                logger.info(f"User {user_id} added to task {task_id}")
-                return make_response(jsonify({"message": "User added to task"}), 200)
 
             query = query[:-2] + " WHERE `id` = %s"
             args['id'] = data['task_id']
@@ -527,6 +521,25 @@ def get_task_users():
     except Exception as e:
         logger.error(f"Internal server error: {e}")
         return make_response(jsonify({"message": "Internal server error", "error": str(e)}), 500)
+    
+
+@app.put('/task_users')
+def update_task_users():
+    data = request.get_json()
+    cursor = mysql.connection.cursor(cur.DictCursor)
+    user_id = data['user_id']
+    task_id = data['task_id']
+
+    try:
+        cursor.execute(
+            "INSERT INTO `task_user_link` values(%s, %s)", (task_id, user_id))
+        mysql.connection.commit()
+        cursor.close()
+    except MySQLdb.IntegrityError:
+        return make_response(jsonify({"message": "User already exists"}), 409)
+
+    logger.info(f"User {user_id} added to task {task_id}")
+    return make_response(jsonify({"message": "User added to task"}), 200)
 
 
 @app.post('/call_status')

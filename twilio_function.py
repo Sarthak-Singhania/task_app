@@ -45,7 +45,7 @@ def make_call(to, title, id, due_date):
     ip = requests.get('http://checkip.amazonaws.com').text.strip()
     # ip = "3.236.58.68"
     call = client.calls.create(
-        to=f"+91{to}",
+        to=to,
         from_="+14422765082",
         twiml=f'''
             <Response>

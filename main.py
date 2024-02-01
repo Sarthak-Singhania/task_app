@@ -43,6 +43,24 @@ def verify_token(token):
         return data
     except:
         return False
+    
+
+def verify_user_access(type, id):
+    cursor = mysql.connection.cursor(cur.DictCursor)
+    if type == "tasks":
+        cursor.execute("select * from task_user_link where task_id = %s and user_id = %s", (id, request.user['user_id']))
+        task_user = cursor.fetchone()
+        if task_user is None:
+            return False
+        return True
+    elif type == "sub_tasks":
+        cursor.execute("select * from sub_tasks where id = %s and task_id in (select task_id from task_user_link where user_id = %s)", (id, request.user['user_id']))
+        sub_task = cursor.fetchone()
+        if sub_task is None:
+            return False
+        return True
+    else:
+        return False
 
 
 @app.before_request
@@ -266,7 +284,7 @@ def get_tasks():
                     query += f" and `{i}` = %s"
 
             query += f" and id in (select task_id from task_user_link where user_id = {
-                request.user['user_id']})"
+                request.user['user_id']}"
 
             if 'page' in args and args['page'].isdigit() and int(args['page']) > 0:
                 page = int(args['page']) - 1
@@ -309,15 +327,20 @@ def update_task():
         request_type = data['type']
         if request_type == 'sub_tasks':
             if 'sub_task_id' not in data:
-                return make_response(jsonify({"message": "Bad Request"}), 400)
+                return make_response(jsonify({"message": "Sub task ID missing from data"}), 400)
+            
             sub_task_id = data['sub_task_id']
+
+            if not verify_user_access("sub_tasks", sub_task_id):
+                return make_response(jsonify({"message": "Unauthorized to access this task"}), 401)
+
             status = Status.SubTask.get_status_from_name(data['status'])
             cursor.execute("UPDATE `sub_tasks` SET `status` = %s WHERE `id` = %s",
                            (status, sub_task_id))
 
             if status == Status.SubTask.DONE:
                 cursor.execute(
-                    "SELECT * FROM `sub_tasks` WHERE `id` = %s", (data['sub_task_id'],))
+                    "SELECT * FROM `sub_tasks` WHERE `id` = %s", (sub_task_id,))
                 sub_tasks = cursor.fetchall()
                 for sub_task in sub_tasks:
                     if sub_task['status'] == Status.SubTask.DONE:
@@ -341,6 +364,9 @@ def update_task():
 
             if len(data) <= 1:
                 return make_response(jsonify({"message": "No data to update."}), 400)
+            
+            if not verify_user_access("tasks", data['task_id']):
+                return make_response(jsonify({"message": "Unauthorized to access this task"}), 401)
 
             unexpected_keys = set(
                 data.keys()) - set(['task_id', 'status', 'due_date', 'user_id'])
@@ -418,6 +444,9 @@ def delete_task():
 
             sub_task_id = request.args.get('sub_task_id')
 
+            if not verify_user_access("sub_tasks", sub_task_id):
+                return make_response(jsonify({"message": "Unauthorized to access this task"}), 401)
+
             cursor.execute(
                 "UPDATE `sub_tasks` SET `delete` = 1 WHERE `id` = %s", (sub_task_id,))
             mysql.connection.commit()
@@ -431,6 +460,9 @@ def delete_task():
                 return make_response(jsonify({"message": "Bad Request"}), 400)
 
             task_id = request.args.get('task_id')
+
+            if not verify_user_access("tasks", task_id):
+                return make_response(jsonify({"message": "Unauthorized to access this task"}), 401)
 
             cursor.execute(
                 "UPDATE `tasks` SET `delete` = 1 WHERE `id` = %s", (task_id,))
@@ -464,6 +496,9 @@ def delete_task_users():
 
         task_id = request.args.get('task_id')
         user_id = request.args.get('user_id')
+
+        if not verify_user_access("tasks", task_id):
+            return make_response(jsonify({"message": "Unauthorized to access this task"}), 401)
 
         cursor = mysql.connection.cursor(cur.DictCursor)
         try:
@@ -499,6 +534,9 @@ def get_task_users():
 
         task_id = request.args.get('task_id')
 
+        if not verify_user_access("tasks", task_id):
+            return make_response(jsonify({"message": "Unauthorized to access this task"}), 401)
+
         cursor = mysql.connection.cursor(cur.DictCursor)
         cursor.execute(
             '''SELECT `users`.`id` as user_id, `users`.`name` as name,
@@ -532,6 +570,9 @@ def update_task_users():
         cursor = mysql.connection.cursor(cur.DictCursor)
         user_id = data['user_id']
         task_id = data['task_id']
+
+        if not verify_user_access("tasks", task_id):
+            return make_response(jsonify({"message": "Unauthorized to access this task"}), 401)
 
         try:
             cursor.execute(

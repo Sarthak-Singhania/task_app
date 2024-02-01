@@ -218,7 +218,8 @@ def get_tasks():
             task_id = request.args.get(
                 'task_id') if 'task_id' in request.args else None
             if task_id is None:
-                cursor.execute("SELECT * FROM `sub_tasks` WHERE `delete` = 0 AND task_id in (select task_id from task_user_link where user_id = %s)", (request.user['user_id'],))
+                cursor.execute(
+                    "SELECT * FROM `sub_tasks` WHERE `delete` = 0 AND task_id in (select task_id from task_user_link where user_id = %s)", (request.user['user_id'],))
             else:
                 cursor.execute(
                     "SELECT * FROM `sub_tasks` WHERE `task_id` = %s and `delete` = 0 AND task_id in (select task_id from task_user_link where user_id = %s)", (task_id, request.user['user_id'],))
@@ -264,7 +265,8 @@ def get_tasks():
                 else:
                     query += f" and `{i}` = %s"
 
-            query += f" and id in (select task_id from task_user_link where user_id = {request.user['user_id']})"
+            query += f" and id in (select task_id from task_user_link where user_id = {
+                request.user['user_id']})"
 
             if 'page' in args and args['page'].isdigit() and int(args['page']) > 0:
                 page = int(args['page']) - 1
@@ -302,8 +304,8 @@ def update_task():
 
         # This is the code for updating subtasks
         if 'type' not in data:
-            return make_response(jsonify({"message":"The task type is missing."}), 400)
-        
+            return make_response(jsonify({"message": "The task type is missing."}), 400)
+
         request_type = data['type']
         if request_type == 'sub_tasks':
             if 'sub_task_id' not in data:
@@ -521,25 +523,34 @@ def get_task_users():
     except Exception as e:
         logger.error(f"Internal server error: {e}")
         return make_response(jsonify({"message": "Internal server error", "error": str(e)}), 500)
-    
+
 
 @app.put('/task_users')
 def update_task_users():
-    data = request.get_json()
-    cursor = mysql.connection.cursor(cur.DictCursor)
-    user_id = data['user_id']
-    task_id = data['task_id']
-
     try:
-        cursor.execute(
-            "INSERT INTO `task_user_link` values(%s, %s)", (task_id, user_id))
-        mysql.connection.commit()
-        cursor.close()
-    except MySQLdb.IntegrityError:
-        return make_response(jsonify({"message": "User already exists"}), 409)
+        data = request.get_json()
+        cursor = mysql.connection.cursor(cur.DictCursor)
+        user_id = data['user_id']
+        task_id = data['task_id']
 
-    logger.info(f"User {user_id} added to task {task_id}")
-    return make_response(jsonify({"message": "User added to task"}), 200)
+        try:
+            cursor.execute(
+                "INSERT INTO `task_user_link` (`task_id`, `user_id`) values(%s, %s)", (task_id, user_id))
+            mysql.connection.commit()
+            cursor.close()
+        except MySQLdb.IntegrityError:
+            return make_response(jsonify({"message": "User already exists"}), 409)
+
+        logger.info(f"User {user_id} added to task {task_id}")
+        return make_response(jsonify({"message": "User added to task"}), 200)
+    
+    except MySQLdb.DatabaseError as e:
+        logger.error(f"Database error: {e}")
+        return make_response(jsonify({"message": "Database error"}), 500)
+    
+    except Exception as e:
+        logger.error(f"Internal server error: {e}")
+        return make_response(jsonify({"message": "Internal server error", "error": str(e)}), 500)
 
 
 @app.post('/call_status')

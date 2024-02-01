@@ -25,9 +25,11 @@ numpy==1.26.3
 pandas==2.2.0
 pyarrow==15.0.0
 PyJWT==2.8.0
+python-crontab==3.0.0
 python-dateutil==2.8.2
 python-dotenv==1.0.1
 pytz==2023.4
+redis==5.0.1
 requests==2.31.0
 six==1.16.0
 twilio==8.12.0

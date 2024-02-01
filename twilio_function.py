@@ -93,6 +93,7 @@ def handle_task(task_id, title, due_date):
                     if check_call_status(call_sid):
                         break
             status = check_call_status(call_sid)
+            r.delete(call_sid)
             if Status.Call.parse_status(status):
                 break
     except Exception as e:

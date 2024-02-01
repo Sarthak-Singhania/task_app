@@ -1,11 +1,12 @@
 from mysql.connector import connect
 from datetime import datetime
 from priority import Priority
+from status import Status
 
 mysql = connect(host="localhost", user="root", password="root", database="task_app")
 cursor = mysql.cursor(dictionary=True)
 
-cursor.execute("SELECT * FROM `tasks` where `delete` = 0 and `due_date` >= %s", (datetime.now().date(),))
+cursor.execute("SELECT * FROM `tasks` where `delete` = 0 and `due_date` >= %s and `status` != %s", (datetime.now().date(), Status.Task.DONE,))
 
 tasks = cursor.fetchall()
 

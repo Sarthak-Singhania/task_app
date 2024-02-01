@@ -264,6 +264,8 @@ def get_tasks():
 
             query = "SELECT * FROM `tasks` WHERE `delete` = 0"
 
+            del args['type']
+
             for i in args:
                 if i == 'due_date':
                     query += " and `due_date` = %s"
@@ -283,8 +285,7 @@ def get_tasks():
                 else:
                     query += f" and `{i}` = %s"
 
-            query += f" and id in (select task_id from task_user_link where user_id = {
-                request.user['user_id']}"
+            query += f" and id in (select task_id from task_user_link where user_id = {request.user['user_id']})"
 
             if 'page' in args and args['page'].isdigit() and int(args['page']) > 0:
                 page = int(args['page']) - 1
@@ -369,7 +370,7 @@ def update_task():
                 return make_response(jsonify({"message": "Unauthorized to access this task"}), 401)
 
             unexpected_keys = set(
-                data.keys()) - set(['task_id', 'status', 'due_date', 'user_id'])
+                data.keys()) - set(['task_id', 'status', 'due_date', 'user_id', 'type'])
             if len(unexpected_keys) > 0:
                 return make_response(jsonify({"message": f"Unexpected keys: {unexpected_keys}"}), 400)
 
